@@ -21,32 +21,30 @@ In the case of maildir, the above applies in spades
   occasions just by looking at the files with ctime newer than the
   last time you did a sync
 
+## Requirements
+
+On the client, it needs Ruby of some kind (possibly 1.9 or later, I've
+forgotten how to use earlier versions, but this may be fixed to
+accommodate 1.8.7 later)
+
+On the server it needs a find(1) command which supports the `print0`
+option, and cpio.  Possibly GNU cpio at that, haven't tested anything
+else
 
 ## Basic algorithm
 
 given the server cwd is a maildir
 and the client cwd is a maildir
 for each message_name on server matching new/name or cur/name:*
-  if there is new/name on client, do nothing
-  if there is cur/name:* on client, do nothing
+  if there is new/name or cur/name:* on client, do nothing
   else copy message to c:tmp/`basename message`
    then rename it to c:cur/name:{existing suffix or "2,"}
 
 
-## Possible optimization
+## Making it faster
 
-Mail messages - especially short ones - are often quite similar
-(common header words, etc), and especially quite similar to messages
-they are replies to (quoted text).  If we deflate (zlib compress)
-the files that are going to get transferred, we can probably save some
-time by prepopulating the compression dictionary from other messages
-in the archive before starting.  
-
- - If we find a reasonably cheap way to look up filenames given
-   message ids, we could chase references header and use that as
-   dictionary fodder
-
- - or we could just dump the dictionary to a file after each transfer
-   and resume from it for the next one
-
- - either way, see deflateSetDictionary in http://zlib.net/manual.html
+Instead of copying the files one at a time, we tar them up and
+transfer in bulk, meaning first that the file is big enough for TCP's
+window size and congestion control stuff to get its teeth into, and
+second that if you enable ssh compression then the later messages will
+be compressed using the dictionary created by the earlier ones.
