@@ -55,7 +55,12 @@ class Maildir
   end
   def stream_files(names,&blk)
     Open3.popen2(cmd("cpio -o --format=tar")) do |stdin,stdout,p|
-      names.each do |n| stdin.puts n end
+      # XXX this deadlocks if there are too many names (I suspect, more than
+      # PIPEBUF_SIZE bytes worth of names
+      names.each do |n|
+        warn n if $verbose
+        stdin.puts n
+      end
       stdin.close
       Tarfile.new(stdout).each_file(&blk)
       p.value
