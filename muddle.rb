@@ -31,8 +31,12 @@ end
 class Maildir
   attr_reader :directory
   def initialize(directory, hostname=nil)
-    @hostname = hostname
-    @directory = directory
+    if hostname.nil? && directory.index(':')
+      @hostname, @directory = directory.split(':')
+    else
+      @hostname = hostname
+      @directory = directory
+    end
     @files={}
   end
   def cmd(command)
@@ -59,10 +63,20 @@ class Maildir
   end
 end
 
-r = Maildir.new("/home/dan/tmp/server", "localhost")
-l = Maildir.new("/home/dan/tmp/client/server")
+$verbose=ARGV.delete('--verbose')
+
+unless ARGV.length == 2
+  warn "Usage: #{$0} [--verbose] remotehost:/remote/path /local/path"
+  exit 1
+end
+
+r = Maildir.new(ARGV[0])
+l = Maildir.new(ARGV[1])
 new_messages = r.files.keys - l.files.keys
+
+warn [:lll,l.directory,r.directory,$verbose]
 warn [r.files.keys.count, l.files.keys.count, new_messages.count]
+
 
 r.stream_files(new_messages.map {|name| r.files[name].first}) do |header, data|
   name = Pathname.new(header.name)
@@ -74,5 +88,5 @@ r.stream_files(new_messages.map {|name| r.files[name].first}) do |header, data|
   final_name = [l.directory, "cur", basename].join("/")
   File.open(tmp_name, "w") {|o| o.write(data) }
   File.rename(tmp_name, final_name)
-  warn final_name
+  warn final_name if $verbose
 end
